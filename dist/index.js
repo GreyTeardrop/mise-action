@@ -80182,12 +80182,13 @@ function setEnvVarsPreInstall() {
     setEnv('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0');
 }
 async function setEnvVars() {
-    core.startGroup('Setting env vars');
     const envOutput = await miseEnv();
+    core.startGroup('Setting env vars');
     if (envOutput.exitCode === 0) {
         const envVars = JSON.parse(envOutput.stdout);
         for (const [key, value] of Object.entries(envVars)) {
             if (key !== 'PATH') {
+                core.info(`Setting ${key} to ${value}`);
                 setEnv(key, value);
             }
         }

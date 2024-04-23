@@ -40,13 +40,14 @@ function setEnvVarsPreInstall(): void {
 }
 
 async function setEnvVars(): Promise<void> {
-  core.startGroup('Setting env vars')
-
   const envOutput = await miseEnv()
+
+  core.startGroup('Setting env vars')
   if (envOutput.exitCode === 0) {
     const envVars: { [key: string]: string } = JSON.parse(envOutput.stdout)
     for (const [key, value] of Object.entries(envVars)) {
       if (key !== 'PATH') {
+        core.info(`Setting ${key} to ${value}`)
         setEnv(key, value)
       }
     }
