@@ -80177,9 +80177,9 @@ async function run() {
 }
 function setEnvVarsPreInstall() {
     core.startGroup('Setting env vars for Mise');
-    setEnv('MISE_TRUSTED_CONFIG_PATHS', process.cwd());
-    setEnv('MISE_YES', '1');
-    setEnv('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0');
+    setEnvIfUnset('MISE_TRUSTED_CONFIG_PATHS', process.cwd());
+    setEnvIfUnset('MISE_YES', '1');
+    setEnvIfUnset('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0');
 }
 async function setEnvVars() {
     const envOutput = await miseEnv();
@@ -80188,7 +80188,6 @@ async function setEnvVars() {
         const envVars = JSON.parse(envOutput.stdout);
         for (const [key, value] of Object.entries(envVars)) {
             if (key !== 'PATH') {
-                core.info(`Setting ${key} to ${value}`);
                 setEnv(key, value);
             }
         }
@@ -80264,11 +80263,14 @@ function getOS() {
             return process.platform;
     }
 }
-const setEnv = (k, v) => {
+const setEnvIfUnset = (k, v) => {
     if (!process.env[k]) {
-        core.info(`Setting ${k}=${v}`);
-        core.exportVariable(k, v);
+        setEnv(k, v);
     }
+};
+const setEnv = (k, v) => {
+    core.info(`Setting ${k}=${v}`);
+    core.exportVariable(k, v);
 };
 const testMise = async () => mise(['--version']);
 const miseInstall = async () => mise(['install']);

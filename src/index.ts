@@ -34,9 +34,9 @@ async function run(): Promise<void> {
 
 function setEnvVarsPreInstall(): void {
   core.startGroup('Setting env vars for Mise')
-  setEnv('MISE_TRUSTED_CONFIG_PATHS', process.cwd())
-  setEnv('MISE_YES', '1')
-  setEnv('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0')
+  setEnvIfUnset('MISE_TRUSTED_CONFIG_PATHS', process.cwd())
+  setEnvIfUnset('MISE_YES', '1')
+  setEnvIfUnset('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0')
 }
 
 async function setEnvVars(): Promise<void> {
@@ -47,7 +47,6 @@ async function setEnvVars(): Promise<void> {
     const envVars: { [key: string]: string } = JSON.parse(envOutput.stdout)
     for (const [key, value] of Object.entries(envVars)) {
       if (key !== 'PATH') {
-        core.info(`Setting ${key} to ${value}`)
         setEnv(key, value)
       }
     }
@@ -136,11 +135,14 @@ function getOS(): string {
   }
 }
 
-const setEnv = (k: string, v: string): void => {
+const setEnvIfUnset = (k: string, v: string): void => {
   if (!process.env[k]) {
-    core.info(`Setting ${k}=${v}`)
-    core.exportVariable(k, v)
+    setEnv(k, v)
   }
+}
+const setEnv = (k: string, v: string): void => {
+  core.info(`Setting ${k}=${v}`)
+  core.exportVariable(k, v)
 }
 
 const testMise = async (): Promise<exec.ExecOutput> => mise(['--version'])
