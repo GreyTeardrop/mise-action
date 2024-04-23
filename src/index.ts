@@ -20,28 +20,39 @@ async function run(): Promise<void> {
 
     const version = core.getInput('version')
     await setupMise(version)
-    await setEnvVars()
+    setEnvVarsPreInstall()
     await testMise()
     if (core.getBooleanInput('install')) {
       await miseInstall()
     }
+    await setEnvVars()
   } catch (err) {
     if (err instanceof Error) core.setFailed(err.message)
     else throw err
   }
 }
 
+function setEnvVarsPreInstall(): void {
+  core.startGroup('Setting env vars for Mise')
+  setEnv('MISE_TRUSTED_CONFIG_PATHS', process.cwd())
+  setEnv('MISE_YES', '1')
+  setEnv('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0')
+}
+
 async function setEnvVars(): Promise<void> {
   core.startGroup('Setting env vars')
-  const set = (k: string, v: string): void => {
-    if (!process.env[k]) {
-      core.info(`Setting ${k}=${v}`)
-      core.exportVariable(k, v)
+
+  const envOutput = await miseEnv()
+  if (envOutput.exitCode === 0) {
+    const envVars: { [key: string]: string } = JSON.parse(envOutput.stdout)
+    for (const [key, value] of Object.entries(envVars)) {
+      if (key !== 'PATH') {
+        setEnv(key, value)
+      }
     }
+  } else {
+    throw new Error(`Failed to run mise env: ${envOutput.stderr}`)
   }
-  set('MISE_TRUSTED_CONFIG_PATHS', process.cwd())
-  set('MISE_YES', '1')
-  set('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0')
 
   const shimsDir = path.join(miseDir(), 'shims')
   core.info(`Adding ${shimsDir} to PATH`)
@@ -124,12 +135,20 @@ function getOS(): string {
   }
 }
 
-const testMise = async (): Promise<number> => mise(['--version'])
-const miseInstall = async (): Promise<number> => mise(['install'])
-const mise = async (args: string[]): Promise<number> =>
+const setEnv = (k: string, v: string): void => {
+  if (!process.env[k]) {
+    core.info(`Setting ${k}=${v}`)
+    core.exportVariable(k, v)
+  }
+}
+
+const testMise = async (): Promise<exec.ExecOutput> => mise(['--version'])
+const miseInstall = async (): Promise<exec.ExecOutput> => mise(['install'])
+const miseEnv = async (): Promise<exec.ExecOutput> => mise(['env', '--json'])
+const mise = async (args: string[]): Promise<exec.ExecOutput> =>
   core.group(`Running mise ${args.join(' ')}`, async () => {
     const cwd = core.getInput('install_dir') || process.cwd()
-    return exec.exec('mise', args, { cwd })
+    return exec.getExecOutput('mise', args, { cwd })
   })
 
 const writeFile = async (p: fs.PathLike, body: string): Promise<void> =>

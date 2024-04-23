@@ -80161,11 +80161,12 @@ async function run() {
         }
         const version = core.getInput('version');
         await setupMise(version);
-        await setEnvVars();
+        setEnvVarsPreInstall();
         await testMise();
         if (core.getBooleanInput('install')) {
             await miseInstall();
         }
+        await setEnvVars();
     }
     catch (err) {
         if (err instanceof Error)
@@ -80174,17 +80175,26 @@ async function run() {
             throw err;
     }
 }
+function setEnvVarsPreInstall() {
+    core.startGroup('Setting env vars for Mise');
+    setEnv('MISE_TRUSTED_CONFIG_PATHS', process.cwd());
+    setEnv('MISE_YES', '1');
+    setEnv('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0');
+}
 async function setEnvVars() {
     core.startGroup('Setting env vars');
-    const set = (k, v) => {
-        if (!process.env[k]) {
-            core.info(`Setting ${k}=${v}`);
-            core.exportVariable(k, v);
+    const envOutput = await miseEnv();
+    if (envOutput.exitCode === 0) {
+        const envVars = JSON.parse(envOutput.stdout);
+        for (const [key, value] of Object.entries(envVars)) {
+            if (key !== 'PATH') {
+                setEnv(key, value);
+            }
         }
-    };
-    set('MISE_TRUSTED_CONFIG_PATHS', process.cwd());
-    set('MISE_YES', '1');
-    set('MISE_EXPERIMENTAL', getExperimental() ? '1' : '0');
+    }
+    else {
+        throw new Error(`Failed to run mise env: ${envOutput.stderr}`);
+    }
     const shimsDir = path.join((0, utils_1.miseDir)(), 'shims');
     core.info(`Adding ${shimsDir} to PATH`);
     core.addPath(shimsDir);
@@ -80253,11 +80263,18 @@ function getOS() {
             return process.platform;
     }
 }
+const setEnv = (k, v) => {
+    if (!process.env[k]) {
+        core.info(`Setting ${k}=${v}`);
+        core.exportVariable(k, v);
+    }
+};
 const testMise = async () => mise(['--version']);
 const miseInstall = async () => mise(['install']);
+const miseEnv = async () => mise(['env', '--json']);
 const mise = async (args) => core.group(`Running mise ${args.join(' ')}`, async () => {
     const cwd = core.getInput('install_dir') || process.cwd();
-    return exec.exec('mise', args, { cwd });
+    return exec.getExecOutput('mise', args, { cwd });
 });
 const writeFile = async (p, body) => core.group(`Writing ${p}`, async () => {
     core.info(`Body:\n${body}`);
