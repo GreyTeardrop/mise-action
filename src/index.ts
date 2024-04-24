@@ -48,15 +48,16 @@ async function setEnvVars(): Promise<void> {
     for (const [key, value] of Object.entries(envVars)) {
       if (key !== 'PATH') {
         setEnv(key, value)
+      } else {
+        for (const pathElement of value.split(path.delimiter)) {
+          core.info(`Adding ${pathElement} to PATH`)
+          core.addPath(pathElement)
+        }
       }
     }
   } else {
     throw new Error(`Failed to run mise env: ${envOutput.stderr}`)
   }
-
-  const shimsDir = path.join(miseDir(), 'shims')
-  core.info(`Adding ${shimsDir} to PATH`)
-  core.addPath(shimsDir)
 }
 
 async function restoreMiseCache(): Promise<void> {
